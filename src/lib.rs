@@ -8,8 +8,6 @@ fn panic(_x: &PanicInfo<'_>) -> ! {
     loop {}
 }
 
-core::arch::global_asm!(include_str!("boot.s"));
-
 #[allow(unused)]
 pub enum VGAColor {
     Black = 0,
@@ -76,6 +74,7 @@ impl Terminal {
     fn print_str(&mut self, s: &'static str) {
         for ch in s.chars() {
             self.put_char(ch);
+            self.terminal_column += 1;
         }
     }
 }

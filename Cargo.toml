@@ -3,6 +3,9 @@ name = "kernel"         # or any other name
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = [ "staticlib" ]
+
 [profile.dev]
 panic = "abort"
 
