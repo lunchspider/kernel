@@ -1,4 +1,7 @@
+use volatile::Volatile;
+
 #[allow(unused)]
+#[repr(C)]
 pub enum VGAColor {
     Black = 0,
     Blue = 1,
@@ -21,29 +24,42 @@ pub enum VGAColor {
 const VGA_WIDTH: usize = 80;
 const VGA_HEIGHT: usize = 25;
 
-pub struct VGATerminal {
+pub struct VGATerminal<'a> {
     terminal_row: usize,
     terminal_column: usize,
     terminal_color: u8,
-    terminal_buffer: *mut u16,
+    terminal_buffer: &'a mut Buffer,
 }
 
-fn vga_entry(ch: char, color: u8) -> u16 {
-    (ch as u8 as u16) | (color as u16) << 8
+pub struct Buffer([[Volatile<VGAChar>; VGA_WIDTH]; VGA_HEIGHT]);
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct VGAChar {
+    pub ascii: u8,
+    pub color: u8,
+}
+
+impl VGAChar {
+    fn new(ch: char, color: u8) -> Self {
+        Self {
+            ascii: ch as u8,
+            color,
+        }
+    }
 }
 
 fn vga_entry_color(fg: VGAColor, bg: VGAColor) -> u8 {
     fg as u8 | (bg as u8) << 4
 }
 
-impl VGATerminal {
+impl VGATerminal<'_> {
     pub unsafe fn new() -> Self {
         let terminal_color = vga_entry_color(VGAColor::LightGrey, VGAColor::Black);
-        let terminal_buffer: *mut u16 = 0xB8000 as _;
+        let mut terminal_buffer = &mut *(0xb8000 as *mut Buffer);
         for y in 0..VGA_HEIGHT {
             for x in 0..VGA_HEIGHT {
-                let index = (y * VGA_WIDTH + x) as isize;
-                *terminal_buffer.offset(index) = vga_entry(' ', terminal_color);
+                terminal_buffer.0[y][x].write(VGAChar::new(' ', terminal_color));
             }
         }
         Self {
@@ -55,10 +71,8 @@ impl VGATerminal {
     }
 
     pub fn put_char(&mut self, ch: char) {
-        let index = (self.terminal_row * VGA_WIDTH + self.terminal_column) as isize;
-        unsafe {
-            *self.terminal_buffer.offset(index) = vga_entry(ch, self.terminal_color);
-        }
+        self.terminal_buffer.0[self.terminal_row][self.terminal_column]
+            .write(VGAChar::new(ch, self.terminal_color));
     }
 
     pub fn increment_column(&mut self) {
@@ -69,10 +83,16 @@ impl VGATerminal {
         }
     }
 
-    // this is technically wrong since we need a proper scrolling feature
     pub fn increment_row(&mut self) {
         if self.terminal_row == VGA_HEIGHT - 1 {
-            self.terminal_row = 0;
+            // shifting all the rows one up
+            for row in 1..VGA_HEIGHT {
+                for col in 0..VGA_WIDTH {
+                    self.terminal_buffer.0[row - 1][col]
+                        .write(self.terminal_buffer.0[row][col].read());
+                }
+            }
+            self.terminal_column = 0;
         } else {
             self.terminal_row += 1;
         }

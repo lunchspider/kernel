@@ -16,8 +16,10 @@ fn panic(_x: &PanicInfo<'_>) -> ! {
 extern "C" fn kernel_main() {
     unsafe {
         let mut term = VGATerminal::new();
-        term.print_str("Hello, Kernel!\n");
-        term.print_str("Hello, New Line!!!\n");
+        for _ in 0..25 {
+            term.print_str("Hello, Kernel!\n");
+            term.print_str("Hello, New Line!!!\n");
+        }
         loop {}
     }
 }
