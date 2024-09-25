@@ -86,7 +86,7 @@ impl VGATerminal<'_> {
     pub fn increment_row(&mut self) {
         if self.terminal_row == VGA_HEIGHT - 1 {
             // shifting all the rows one up
-            for row in 0..VGA_HEIGHT - 1 {
+            for row in 0..VGA_HEIGHT {
                 for col in 0..VGA_WIDTH {
                     self.terminal_buffer.0[row][col]
                         .write(self.terminal_buffer.0[row + 1][col].read());
