@@ -63,7 +63,7 @@ impl VGATerminal<'_> {
             }
         }
         Self {
-            terminal_row: 0,
+            terminal_row: VGA_HEIGHT - 1,
             terminal_column: 0,
             terminal_buffer,
             terminal_color,
@@ -83,18 +83,22 @@ impl VGATerminal<'_> {
         }
     }
 
-    pub fn increment_row(&mut self) {
-        if self.terminal_row == VGA_HEIGHT - 1 {
-            // shifting all the rows one up
-            for row in 0..VGA_HEIGHT {
-                for col in 0..VGA_WIDTH {
-                    self.terminal_buffer.0[row][col]
-                        .write(self.terminal_buffer.0[row + 1][col].read());
-                }
+    pub fn new_line(&mut self) {
+        // shifting all the rows one up
+        for row in 1..VGA_HEIGHT {
+            for col in 0..VGA_WIDTH {
+                let character = self.terminal_buffer.0[row][col].read();
+                self.terminal_buffer.0[row - 1][col].write(character);
             }
-            self.terminal_column = 0;
-        } else {
-            self.terminal_row += 1;
+        }
+        self.terminal_column = 0;
+        self.clear_row(VGA_HEIGHT - 1);
+    }
+
+    pub fn clear_row(&mut self, row: usize) {
+        let character = VGAChar::new(' ', self.terminal_color);
+        for col in 0..VGA_WIDTH {
+            self.terminal_buffer.0[row][col].write(character);
         }
     }
 
@@ -105,7 +109,7 @@ impl VGATerminal<'_> {
             }
             self.increment_column();
             if ch == '\n' {
-                self.increment_row();
+                self.new_line();
                 self.terminal_column = 0;
             }
         }
