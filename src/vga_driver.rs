@@ -101,9 +101,14 @@ impl VGATerminal<'_> {
             self.terminal_buffer.0[row][col].write(character);
         }
     }
+}
 
-    pub fn print_str(&mut self, s: &'static str) {
+impl core::fmt::Write for VGATerminal<'_> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for ch in s.chars() {
+            if !ch.is_ascii() {
+                return Err(core::fmt::Error);
+            }
             if ch != '\n' {
                 self.put_char(ch);
             }
@@ -113,5 +118,6 @@ impl VGATerminal<'_> {
                 self.terminal_column = 0;
             }
         }
+        Ok(())
     }
 }

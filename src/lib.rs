@@ -3,7 +3,7 @@
 
 mod vga_driver;
 
-use core::panic::PanicInfo;
+use core::{fmt::Write, panic::PanicInfo};
 
 use vga_driver::VGATerminal;
 
@@ -17,8 +17,8 @@ extern "C" fn kernel_main() {
     unsafe {
         let mut term = VGATerminal::new();
         for _ in 0..25 {
-        term.print_str("Hello, Kernel!\n");
-        term.print_str("Hello, New Line!!!\n");
+            term.write_str("Hello, Kernel!\n");
+            term.write_str("Hello, New Line!!!\n");
         }
         loop {}
     }
