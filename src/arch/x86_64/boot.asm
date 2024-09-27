@@ -140,6 +140,7 @@ setup_paging:
 start:
     ; print `OK` to screen
     mov esp, stack_top
+    mov edi, ebx
 
     call check_multiboot
     call check_cpuid

@@ -1,3 +1,5 @@
+use lazy_static::lazy_static;
+use spin::Mutex;
 use volatile::Volatile;
 
 #[allow(unused)]
@@ -24,11 +26,11 @@ pub enum VGAColor {
 const VGA_WIDTH: usize = 80;
 const VGA_HEIGHT: usize = 25;
 
-pub struct VGATerminal<'a> {
+pub struct VGATerminal {
     terminal_row: usize,
     terminal_column: usize,
     terminal_color: u8,
-    terminal_buffer: &'a mut Buffer,
+    terminal_buffer: &'static mut Buffer,
 }
 
 pub struct Buffer([[Volatile<VGAChar>; VGA_WIDTH]; VGA_HEIGHT]);
@@ -40,6 +42,15 @@ pub struct VGAChar {
     pub color: u8,
 }
 
+lazy_static! {
+    pub static ref TERMINAL: Mutex<VGATerminal> = Mutex::new(VGATerminal {
+        terminal_row: VGA_HEIGHT - 1,
+        terminal_column: 0,
+        terminal_color: vga_entry_color(VGAColor::LightGrey, VGAColor::Black),
+        terminal_buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+    });
+}
+
 impl VGAChar {
     fn new(ch: char, color: u8) -> Self {
         Self {
@@ -49,27 +60,11 @@ impl VGAChar {
     }
 }
 
-fn vga_entry_color(fg: VGAColor, bg: VGAColor) -> u8 {
+const fn vga_entry_color(fg: VGAColor, bg: VGAColor) -> u8 {
     fg as u8 | (bg as u8) << 4
 }
 
-impl VGATerminal<'_> {
-    pub unsafe fn new() -> Self {
-        let terminal_color = vga_entry_color(VGAColor::LightGrey, VGAColor::Black);
-        let mut terminal_buffer = &mut *(0xb8000 as *mut Buffer);
-        for y in 0..VGA_HEIGHT {
-            for x in 0..VGA_HEIGHT {
-                terminal_buffer.0[y][x].write(VGAChar::new(' ', terminal_color));
-            }
-        }
-        Self {
-            terminal_row: VGA_HEIGHT - 1,
-            terminal_column: 0,
-            terminal_buffer,
-            terminal_color,
-        }
-    }
-
+impl VGATerminal {
     pub fn put_char(&mut self, ch: char) {
         self.terminal_buffer.0[self.terminal_row][self.terminal_column]
             .write(VGAChar::new(ch, self.terminal_color));
@@ -103,7 +98,7 @@ impl VGATerminal<'_> {
     }
 }
 
-impl core::fmt::Write for VGATerminal<'_> {
+impl core::fmt::Write for VGATerminal {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for ch in s.chars() {
             if !ch.is_ascii() {
@@ -120,4 +115,21 @@ impl core::fmt::Write for VGATerminal<'_> {
         }
         Ok(())
     }
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_driver::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[doc(hidden)]
+pub fn _print(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    TERMINAL.lock().write_fmt(args).unwrap();
 }
