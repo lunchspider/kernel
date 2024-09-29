@@ -2,11 +2,13 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
+mod gdt;
 mod interrupts;
 mod vga_driver;
 
 use core::panic::PanicInfo;
 use multiboot2::BootInformation;
+use x86_64::instructions::hlt;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -14,8 +16,15 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
+fn hlt_loop() -> ! {
+    loop {
+        hlt();
+    }
+}
+
 #[no_mangle]
 extern "C" fn kernel_main(multiboot_information_address: usize) {
+    gdt::init();
     interrupts::init_interrupts();
 
     let boot_info = unsafe {
@@ -44,4 +53,6 @@ extern "C" fn kernel_main(multiboot_information_address: usize) {
             section.flags()
         );
     }
+
+    hlt_loop();
 }
