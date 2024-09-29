@@ -9,7 +9,8 @@ use core::panic::PanicInfo;
 use multiboot2::BootInformation;
 
 #[panic_handler]
-fn panic(_x: &PanicInfo<'_>) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("{}", info);
     loop {}
 }
 
