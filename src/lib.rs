@@ -4,6 +4,7 @@
 
 mod gdt;
 mod interrupts;
+mod pic;
 mod vga_driver;
 
 use core::panic::PanicInfo;

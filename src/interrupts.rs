@@ -1,10 +1,9 @@
-use crate::{gdt, println};
+use crate::{gdt, pic::ChainedPic, println};
 use lazy_static::lazy_static;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
-
 
 lazy_static! {
     pub static ref IDT: InterruptDescriptorTable = {
@@ -16,6 +15,16 @@ lazy_static! {
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         }
         idt
+    };
+}
+
+lazy_static! {
+    pub static ref CHAINED_PIC: ChainedPic = {
+        let mut chained_pic = ChainedPic::new(PIC_1_OFFSET, PIC_2_OFFSET);
+        unsafe {
+            chained_pic.intialize();
+        }
+        chained_pic
     };
 }
 
