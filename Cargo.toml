@@ -20,6 +20,7 @@ spin = "0.5.2"
 x86_64 = "0.14.2"
 uart_16550 = "0.2.0"
 multiboot2 = {version = "0.23.0", default-features = false}
+pc-keyboard = "0.8.0"
 
 [dependencies.lazy_static]
 version = "1.0"
