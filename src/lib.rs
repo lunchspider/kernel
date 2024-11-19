@@ -1,15 +1,16 @@
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt)]
+#![feature(abi_x86_interrupt, ptr_internals)]
 
 mod gdt;
 mod interrupts;
+mod memory;
 mod pic;
 mod vga_driver;
 
 use core::panic::PanicInfo;
 use multiboot2::BootInformation;
-use x86_64::instructions::hlt;
+use x86_64::{instructions::hlt, VirtAddr};
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -43,17 +44,42 @@ extern "C" fn kernel_main(multiboot_information_address: usize) {
         );
     }
 
-    let elf_sections_tag = boot_info.elf_sections().expect("Elf-sections tag required");
+    // 0 because i didn't do any offset
+    let phys_mem_offset = VirtAddr::new(0);
 
-    println!("kernel sections:");
-    for section in elf_sections_tag {
-        println!(
-            "    addr: 0x{:x}, size: 0x{:x}, flags: 0x{:x}",
-            section.start_address(),
-            section.size(),
-            section.flags()
-        );
-    }
+    let addresses = [
+        // the identity-mapped vga buffer page
+        0xb8000,
+        // some code page
+        //0x201008,
+        // some stack page
+        //0x0100_0020_1a10,
+        // virtual address mapped to physical address 0
+        0,
+    ];
+
+    let kernel_start = boot_info
+        .elf_sections()
+        .unwrap()
+        .map(|s| s.start_address())
+        .min()
+        .unwrap();
+    let kernel_end = boot_info
+        .elf_sections()
+        .unwrap()
+        .map(|s| s.start_address() + s.size())
+        .min()
+        .unwrap();
+    let multiboot_start = multiboot_information_address;
+    let multiboot_end = multiboot_start + (boot_info.total_size() as usize);
+
+    let mut frame_allocator = memory::AreaFrameAllocator::new(
+        kernel_start as usize,
+        kernel_end as usize,
+        multiboot_start,
+        multiboot_end,
+        memory_map_tag.memory_areas(),
+    );
 
     hlt_loop();
 }

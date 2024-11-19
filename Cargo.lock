@@ -45,6 +45,7 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.6.0",
  "lazy_static",
  "multiboot2",
  "pc-keyboard",

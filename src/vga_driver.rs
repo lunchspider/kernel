@@ -72,7 +72,7 @@ impl VGATerminal {
 
     pub fn increment_column(&mut self) {
         if self.terminal_column == VGA_WIDTH - 1 {
-            self.terminal_column = 0;
+            self.new_line();
         } else {
             self.terminal_column += 1;
         }

@@ -88,7 +88,13 @@ check_long_mode:
     mov al, "2"
     jmp error
 
+    
 setup_page_tables:
+     ; map P4 table recursively
+    mov eax, p4_table
+    or eax, 0b11 ; present + writable
+    mov [p4_table + 511 * 8], eax
+
     ; map first P4 entry to P3 table
     mov eax, p3_table
     or eax, 0b11 ; present + writable
@@ -99,19 +105,21 @@ setup_page_tables:
     or eax, 0b11 ; present + writable
     mov [p3_table], eax
 
-    mov ecx, 0
+    ; map each P2 entry to a huge 2MiB page
+    mov ecx, 0         ; counter variable
 
-    .map_p2_table:
-        mov eax, 0x200000
-        mul ecx
-        or eax, 0b10000011 ; present + writable + huge
-        mov [p2_table + ecx * 8], eax ; map ecx-th entry
+.map_p2_table:
+    ; map ecx-th P2 entry to a huge page that starts at address 2MiB*ecx
+    mov eax, 0x200000  ; 2MiB
+    mul ecx            ; start address of ecx-th page
+    or eax, 0b10000011 ; present + writable + huge
+    mov [p2_table + ecx * 8], eax ; map ecx-th entry
 
-        inc ecx
-        cmp ecx, 512
-        jne .map_p2_table
+    inc ecx            ; increase counter
+    cmp ecx, 512       ; if counter == 512, the whole P2 table is mapped
+    jne .map_p2_table  ; else map the next entry
+
     ret
-
 
 setup_paging:
     ; load P4 to cr3 register (cpu uses this to access the P4 table)
@@ -136,7 +144,6 @@ setup_paging:
 
     ret
 
-
 start:
     ; print `OK` to screen
     mov esp, stack_top
@@ -156,15 +163,6 @@ start:
 
     hlt
 
-section .rodata
-gdt64:
-    dq 0 ; zero entry
-.code: equ $ - gdt64
-    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; code segment
-.pointer:
-    dw $ - gdt64 - 1
-    dq gdt64
-
 section .bss
 align 4096
 p4_table:
@@ -174,5 +172,15 @@ p3_table:
 p2_table:
     resb 4096
 stack_bottom:
-    resb 4096 * 5
+    resb 4096 * 8
 stack_top:
+
+section .rodata
+gdt64:
+    dq 0 ; zero entry
+.code: equ $ - gdt64
+    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; code segment
+.pointer:
+    dw $ - gdt64 - 1
+    dq gdt64
+
