@@ -1,5 +1,6 @@
 use crate::memory::Frame;
 use bitflags::bitflags;
+use multiboot2::{ElfSection, ElfSectionFlags};
 
 pub struct Entry(u64);
 
@@ -33,6 +34,7 @@ impl Entry {
 }
 
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct EntryFlags: u64 {
         const PRESENT =         1 << 0;
         const WRITABLE =        1 << 1;
@@ -44,5 +46,24 @@ bitflags! {
         const HUGE_PAGE =       1 << 7;
         const GLOBAL =          1 << 8;
         const NO_EXECUTE =      1 << 63;
+    }
+}
+
+impl EntryFlags {
+    pub fn from_elf_section_flags(section: &ElfSection) -> EntryFlags {
+        let mut flags = EntryFlags::empty();
+
+        if section.flags().contains(ElfSectionFlags::ALLOCATED) {
+            // section is loaded to memory
+            flags = flags | Self::PRESENT;
+        }
+        if section.flags().contains(ElfSectionFlags::WRITABLE) {
+            flags = flags | Self::WRITABLE;
+        }
+        if !section.flags().contains(ElfSectionFlags::EXECUTABLE) {
+            flags = flags | Self::NO_EXECUTE;
+        }
+
+        flags
     }
 }

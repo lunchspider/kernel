@@ -145,7 +145,6 @@ setup_paging:
     ret
 
 start:
-    ; print `OK` to screen
     mov esp, stack_top
     mov edi, ebx
 

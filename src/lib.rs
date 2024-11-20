@@ -10,7 +10,7 @@ mod vga_driver;
 
 use core::panic::PanicInfo;
 use multiboot2::BootInformation;
-use x86_64::{instructions::hlt, VirtAddr};
+use x86_64::{instructions::hlt, registers::control::Efer};
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -44,20 +44,6 @@ extern "C" fn kernel_main(multiboot_information_address: usize) {
         );
     }
 
-    // 0 because i didn't do any offset
-    let phys_mem_offset = VirtAddr::new(0);
-
-    let addresses = [
-        // the identity-mapped vga buffer page
-        0xb8000,
-        // some code page
-        //0x201008,
-        // some stack page
-        //0x0100_0020_1a10,
-        // virtual address mapped to physical address 0
-        0,
-    ];
-
     let kernel_start = boot_info
         .elf_sections()
         .unwrap()
@@ -81,5 +67,23 @@ extern "C" fn kernel_main(multiboot_information_address: usize) {
         memory_map_tag.memory_areas(),
     );
 
+    enable_nxe_bit();
+    enable_write_protect_bit();
+    memory::remap_the_kernel(&mut frame_allocator, &boot_info);
+
     hlt_loop();
+}
+
+fn enable_nxe_bit() {
+    let nxe_bit = 1 << 11;
+    unsafe {
+        let efer = Efer::read_raw();
+        Efer::write_raw(efer | nxe_bit);
+    }
+}
+
+fn enable_write_protect_bit() {
+    use x86_64::registers::control::{Cr0, Cr0Flags};
+
+    unsafe { Cr0::write(Cr0Flags::WRITE_PROTECT | Cr0::read()) };
 }
