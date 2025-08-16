@@ -9,8 +9,9 @@ mod pic;
 mod vga_driver;
 
 use core::panic::PanicInfo;
+use memory::{FrameAllocator, RecursivePageTable};
 use multiboot2::BootInformation;
-use x86_64::{instructions::hlt, registers::control::Efer};
+use x86_64::{instructions::hlt, registers::control::Efer, PhysAddr, VirtAddr};
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -50,6 +51,7 @@ extern "C" fn kernel_main(multiboot_information_address: usize) {
         .map(|s| s.start_address())
         .min()
         .unwrap();
+
     let kernel_end = boot_info
         .elf_sections()
         .unwrap()
@@ -67,9 +69,27 @@ extern "C" fn kernel_main(multiboot_information_address: usize) {
         memory_map_tag.memory_areas(),
     );
 
+    for i in 0.. {
+        let frame = frame_allocator.allocate_frame();
+        if let None = frame {
+            println!("allocated {} frames", i);
+            break;
+        }
+    }
+
+    let pages = RecursivePageTable::new(VirtAddr::new(0xffffffff_fffff000));
+
+    let res = unsafe { pages.translate(VirtAddr::new(0xb8000)) };
+    println!("got frame: {:?}", res);
+
+    //println!("kernel_start: {:?}", kernel_start);
+
+    //let res = unsafe { pages.translate(VirtAddr::new(kernel_start)) };
+
+    //println!("got frame: {:?}", res);
+    //
     enable_nxe_bit();
     enable_write_protect_bit();
-    memory::remap_the_kernel(&mut frame_allocator, &boot_info);
 
     hlt_loop();
 }
